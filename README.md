@@ -24,69 +24,47 @@ import os
 import time
 from playwright.sync_api import sync_playwright
 
-# --- CONFIGURATION ---
 URL_CIBLE = "https://example.site.com"
 SELECTEUR_BOUTON = "#payment-form > div > div > div > div.FadeWrapper > div > div > div > div > div:nth-child(2) > div > button > div > span.LinkActionButton-text > div.SubmitButton-IconContainer" 
+# TEST : SELECTEUR_BOUTON = "#root > div > div > div.App-Payment > div > footer > div > a > div"
 CONFIG_FILE = "/home/wark/Desktop/bot_config.json"
-# Profil Chromium (vérifie bien si ton user est 'wark')
 USER_DATA_DIR = "/home/wark/Desktop/session_bot" 
 
 def charger_compteur():
     if not os.path.exists(CONFIG_FILE):
-        print("Erreur : Fichier config.json introuvable sur le Bureau.")
         return 0
     with open(CONFIG_FILE, "r") as f:
         data = json.load(f)
         return data.get("remaining_days", 0)
-
 def sauver_compteur(jours):
     with open(CONFIG_FILE, "w") as f:
         json.dump({"remaining_days": jours}, f, indent=4)
-
 def executer_clic():
     jours = charger_compteur()
-    
     if jours <= 0:
-        print(f"[{time.ctime()}] Compteur à 0. Mission terminée. Extinction du Raspberry Pi...")
-        # On attend 5 secondes pour être sûr que le log est écrit
+        print("Mission accomplie (0 jours restants). Extinction du Pi.")
         time.sleep(5)
         os.system("sudo shutdown now") 
         return
-
-    print(f"[{time.ctime()}] Lancement... Jours restants avant l'arrêt : {jours}")
-
     with sync_playwright() as p:
         try:
-            # Lancement avec le profil utilisateur pour garder les cookies
             browser = p.chromium.launch_persistent_context(
                 USER_DATA_DIR,
-                headless=False, # On laisse False pour voir l'action / permettre la connexion, puis True quand tout est validé 
+                headless=False,
                 args=["--no-sandbox"]
             )
-            
             page = browser.new_page()
-            page.goto(URL_CIBLE)
-
-            # Permet de mettre une pause de 10 min lors du premier essai pour pouvoir se connecter sur le site en question 
-            # time.sleep(600)
-
-            # Attente du bouton
-            page.wait_for_selector(SELECTEUR_BOUTON, timeout=30000)
-            time.sleep(30) # Petite pause pour faire "humain"
-            page.click(SELECTEUR_BOUTON)
-            
-            # Attente de confirmation (chargement de la page suivante)
-            time.sleep(30) 
-            
-            # Si on arrive ici sans erreur, on décrémente
+            page.goto(URL_CIBLE, wait_until="commit", timeout=90000)
+            time.sleep(180)
+            page.wait_for_selector(SELECTEUR_BOUTON, state="visible", timeout=60000)
+            page.click(SELECTEUR_BOUTON, force=True)
+            time.sleep(180) 
             sauver_compteur(jours - 1)
-            print(f"[{time.ctime()}] Succès : Bouton cliqué. Nouveau solde : {jours - 1} jours.")
-            
+            print(f"[{time.ctime()}] Clic effectué avec succès ! Nouveau solde : {jours - 1} jours.")
+            time.sleep(5)
             browser.close()
-
         except Exception as e:
             print(f"[{time.ctime()}] ERREUR : {e}")
-
 if __name__ == "__main__":
     executer_clic()
 ```
