@@ -73,7 +73,10 @@ if __name__ == "__main__":
 - CONFIG_FILE = fichier texte qui contient le nombres de jours
 - USER_DATA_DIR = cookies de la session
 
-
+Le rendre exécutable : 
+```bash
+chmod +x /home/wark/Desktop/bot_clic.py
+```
 ## Commandes de test et de debug
 Pour tester le script manuellement (le DISPLAY=:0 est crucial pour usage avec interface graphique)
 ```bash
@@ -89,7 +92,7 @@ crontab -e
 ```
 Ligne à ajoutée tout en bas du fichier :
 ```bash
-00 23 * * * DISPLAY=:0 /usr/bin/python3 /home/wark/Desktop/bot_clic.py >> /home/wark/Desktop/log_bot.txt 2>&1
+00 22 * * * sleep $((RANDOM \% 1800)) && DISPLAY=:0 /usr/bin/python3 /home/wark/Desktop/bot_clic.py >> /home/wark/Desktop/log_bot.txt 2>&1
 ```
 ## Consultation des résultats
 Lire le journal de bord (les logs)
