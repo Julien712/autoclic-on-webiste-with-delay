@@ -22,6 +22,7 @@ Copier coller le script :
 import json
 import os
 import time
+import smtplib
 from playwright.sync_api import sync_playwright
 
 URL_CIBLE = "https://example.site.com"
@@ -39,11 +40,18 @@ def charger_compteur():
 def sauver_compteur(jours):
     with open(CONFIG_FILE, "w") as f:
         json.dump({"remaining_days": jours}, f, indent=4)
+def envoyer_alerte():
+    try:
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as s:
+            s.login("smtp@email.com", "password")
+            s.sendmail("smtp@email.com", "dest@email.com", "Subject: Bot Terminé Extinction.")
+    except: pass
 def executer_clic():
     jours = charger_compteur()
     if jours <= 0:
-        print("Mission accomplie (0 jours restants). Extinction du Pi.")
-        time.sleep(5)
+        print("Mission accomplie (0 jours restants). Extinction.")
+        envoyer_alerte()
+        time.sleep(15)
         os.system("sudo shutdown now") 
         return
     with sync_playwright() as p:
