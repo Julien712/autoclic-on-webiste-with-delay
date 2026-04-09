@@ -51,7 +51,7 @@ def executer_clic():
     jours = charger_compteur()
     if jours <= 0:
         print("Mission accomplie (0 jours restants). Extinction.")
-        envoyer_alerte("SwilePI : Mission Terminee", "Le compteur est a 0. Extinction.")
+        envoyer_alerte("Mission Terminee", "Le compteur est a 0. Extinction.")
         time.sleep(15)
         os.system("sudo shutdown now") 
         return
@@ -60,12 +60,15 @@ def executer_clic():
             browser = p.chromium.launch_persistent_context(
                 USER_DATA_DIR,
                 headless=False,
-                args=["--no-sandbox"]
+                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+                args=["--no-sandbox", "--disable-blink-features=AutomationControlled"]
             )
             page = browser.new_page()
             page.goto(URL_CIBLE, wait_until="commit", timeout=90000)
             time.sleep(180)
             page.wait_for_selector(SELECTEUR_BOUTON, state="visible", timeout=60000)
+            page.hover(SELECTEUR_BOUTON)
+            time.sleep(2)
             page.click(SELECTEUR_BOUTON, force=True)
             try:
                 page.wait_for_function(f"window.location.href !== '{URL_CIBLE}'", timeout=30000)
