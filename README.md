@@ -67,6 +67,15 @@ def executer_clic():
             time.sleep(180)
             page.wait_for_selector(SELECTEUR_BOUTON, state="visible", timeout=60000)
             page.click(SELECTEUR_BOUTON, force=True)
+            try:
+                page.wait_for_function(f"window.location.href !== '{URL_CIBLE}'", timeout=30000)
+                print(f"[{time.ctime()}] Changement de page détecté. Validation confirmée.")
+            except:
+                browser.close()
+                msg_echec = "Le clic a ete fait mais la page n'a pas change (blocage ou erreur de validation)."
+                print(f"[{time.ctime()}] {msg_echec}")
+                envoyer_alerte("Bot : ECHEC VALIDATION", msg_echec)
+                return
             time.sleep(180) 
             sauver_compteur(jours - 1)
             print(f"[{time.ctime()}] Clic effectué avec succès ! Nouveau solde : {jours - 1} jours.")
