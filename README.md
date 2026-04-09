@@ -42,7 +42,8 @@ def sauver_compteur(jours):
         json.dump({"remaining_days": jours}, f, indent=4)
 def envoyer_alerte(sujet, corps):
     try:
-        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as s:
+        with smtplib.SMTP("smtp.gmail.com", 465) as s:
+            s.starttls()
             s.login("smtp@email.com", "password")
             s.sendmail("smtp@email.com", "dest@email.com", f"Subject: {sujet}\n\n{corps}")
     except: pass
@@ -72,6 +73,7 @@ def executer_clic():
             time.sleep(5)
             browser.close()
         except Exception as e:
+            erreur_msg = f"Erreur lors du clic : {e}"
             print(f"[{time.ctime()}] ERREUR : {e}")
             envoyer_alerte("Bot : ERREUR DETECTEE", erreur_msg)
 if __name__ == "__main__":
