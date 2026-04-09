@@ -111,11 +111,25 @@ sudo -l
 ```
 ## Automatisation avec Cron
 ```bash
+nano /home/wark/Desktop/run_bot.sh
+```
+Coller ce code :
+```bash
+#!/bin/bash
+sleep $((RANDOM % 1800))
+DISPLAY=:0 /usr/bin/python3 /home/wark/Desktop/bot_clic.py >> /home/wark/Desktop/log_bot.txt 2>&1
+```
+Le rendre exécutable : 
+```bash
+chmod +x /home/wark/Desktop/run_bot.sh
+```
+Puis :
+```bash
 crontab -e
 ```
 Ligne à ajoutée tout en bas du fichier :
 ```bash
-00 22 * * * sleep $((RANDOM \% 1800)) && DISPLAY=:0 /usr/bin/python3 /home/wark/Desktop/bot_clic.py >> /home/wark/Desktop/log_bot.txt 2>&1
+00 22 * * * /home/wark/Desktop/run_bot.sh
 ```
 ## Consultation des résultats
 Lire le journal de bord (les logs)
@@ -126,5 +140,3 @@ Voir combien de jours il reste au compteur (et l'éditer)
 ```bash
 nano /home/wark/Desktop/bot_config.json
 ```
-
-
