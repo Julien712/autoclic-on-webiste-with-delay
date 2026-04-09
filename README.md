@@ -40,17 +40,17 @@ def charger_compteur():
 def sauver_compteur(jours):
     with open(CONFIG_FILE, "w") as f:
         json.dump({"remaining_days": jours}, f, indent=4)
-def envoyer_alerte():
+def envoyer_alerte(sujet, corps):
     try:
         with smtplib.SMTP_SSL("smtp.gmail.com", 465) as s:
             s.login("smtp@email.com", "password")
-            s.sendmail("smtp@email.com", "dest@email.com", "Subject: Bot Terminé Extinction.")
+            s.sendmail("smtp@email.com", "dest@email.com", f"Subject: {sujet}\n\n{corps}")
     except: pass
 def executer_clic():
     jours = charger_compteur()
     if jours <= 0:
         print("Mission accomplie (0 jours restants). Extinction.")
-        envoyer_alerte()
+        envoyer_alerte("SwilePI : Mission Terminee", "Le compteur est a 0. Extinction.")
         time.sleep(15)
         os.system("sudo shutdown now") 
         return
@@ -73,6 +73,7 @@ def executer_clic():
             browser.close()
         except Exception as e:
             print(f"[{time.ctime()}] ERREUR : {e}")
+            envoyer_alerte("Bot : ERREUR DETECTEE", erreur_msg)
 if __name__ == "__main__":
     executer_clic()
 ```
