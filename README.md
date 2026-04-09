@@ -1,5 +1,5 @@
 # Clic automatique sur un site web avec délai
-Permet de cliquer sur un bouton spécifique sur un site chaque soir à 23h pendant X jours, puis éteindre l'appareil
+Ce script pouvant être utilisé sur n'importe quelle machine Linux sert à cliquer sur un bouton spécifique sur un site chaque soir aléatoirement entre 22h et 22h30 pendant X jours, puis éteindre l'appareil une fois le compteur de jours à 0.
 
 ## Préparation de l'environnement Python
 
