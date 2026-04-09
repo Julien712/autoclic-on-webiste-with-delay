@@ -42,7 +42,7 @@ def sauver_compteur(jours):
         json.dump({"remaining_days": jours}, f, indent=4)
 def envoyer_alerte(sujet, corps):
     try:
-        with smtplib.SMTP("smtp.gmail.com", 465) as s:
+        with smtplib.SMTP("smtp.gmail.com", 587) as s:
             s.starttls()
             s.login("smtp@email.com", "password")
             s.sendmail("smtp@email.com", "dest@email.com", f"Subject: {sujet}\n\n{corps}")
