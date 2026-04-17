@@ -6,14 +6,12 @@ Ce script pouvant être utilisé sur n'importe quelle machine Linux sert à cliq
 Installation de Playwright (le moteur du bot), du navigateur Chromium spécifique et des dépendances système
 ```bash
 pip install playwright --break-system-packages
-python3 -m playwright install chromium
 python3 -m playwright install-deps
 ```
 ## Création des dossiers et fichiers sur le Bureau
 
-Créer le dossier pour sauvegarder les cookies, le fichier de configuration initial (14 jours) et le fichier de script
+Créer le fichier de configuration initial (14 jours) et le fichier de script
 ```bash
-mkdir -p /home/wark/Desktop/session_bot
 echo '{"remaining_days": 14}' > /home/wark/Desktop/bot_config.json
 nano /home/wark/Desktop/bot_clic.py
 ```
@@ -90,7 +88,6 @@ if __name__ == "__main__":
 - URL_CIBLE = Lien du site
 - SELECTEUR_BOUTON = Ouvrir Chrome, faire Ctrl + Maj + C, cliquer sur le bouton que tu veux, Fais un clic droit sur la ligne surlignée -> Copy -> Copy selector, puis coller dans le script
 - CONFIG_FILE = fichier texte qui contient le nombres de jours
-- USER_DATA_DIR = cookies de la session
 
 Le rendre exécutable : 
 ```bash
