@@ -22,6 +22,8 @@ Copier coller le script :
 import json
 import os
 import time
+import random
+import subprocess
 import smtplib
 from playwright.sync_api import sync_playwright
 
@@ -29,7 +31,6 @@ URL_CIBLE = "https://example.site.com"
 SELECTEUR_BOUTON = "#payment-form > div > div > div > div.FadeWrapper > div > div > div > div > div:nth-child(2) > div > button > div > span.LinkActionButton-text > div.SubmitButton-IconContainer" 
 # TEST : SELECTEUR_BOUTON = "#root > div > div > div.App-Payment > div > footer > div > a > div"
 CONFIG_FILE = "/home/wark/Desktop/bot_config.json"
-USER_DATA_DIR = "/home/wark/Desktop/session_bot" 
 
 def charger_compteur():
     if not os.path.exists(CONFIG_FILE):
@@ -45,9 +46,12 @@ def envoyer_alerte(sujet, corps):
         with smtplib.SMTP("smtp.gmail.com", 587) as s:
             s.starttls()
             s.login("smtp@email.com", "password")
-            s.sendmail("smtp@email.com", "dest@email.com", f"Subject: {sujet}\n\n{corps}")
+            s.sendmail("smtp@email.com", "dest@email.com", f"Subject: {sujet}\n\n{corps}".encode('utf-8'))
     except: pass
 def executer_clic():
+    attente_aleatoire = random.randint(0, 1800) if not os.isatty(0) else 0
+    print(f"[{time.ctime()}] Attente aléatoire de {attente_aleatoire // 60} min avant de commencer...", flush=True)
+    time.sleep(attente_aleatoire)
     jours = charger_compteur()
     if jours <= 0:
         print("Mission accomplie (0 jours restants). Extinction.")
@@ -55,31 +59,20 @@ def executer_clic():
         time.sleep(15)
         os.system("sudo shutdown now") 
         return
+    process = subprocess.Popen(["chromium-browser", URL_CIBLE, "--remote-debugging-port=9222"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, env={**os.environ, "DISPLAY": ":0"})
+    time.sleep(10)
     with sync_playwright() as p:
         try:
-            browser = p.chromium.launch_persistent_context(
-                USER_DATA_DIR,
-                headless=False,
-                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-                args=["--no-sandbox", "--disable-blink-features=AutomationControlled"]
-            )
-            page = browser.new_page()
-            page.goto(URL_CIBLE, wait_until="commit", timeout=90000)
-            time.sleep(180)
+            browser = p.chromium.connect_over_cdp("http://localhost:9222")
+            context = browser.contexts[0]
+            if not context.pages: raise Exception("Aucun onglet detecte")
+            page = context.pages[0]
+            time.sleep(180) 
             page.wait_for_selector(SELECTEUR_BOUTON, state="visible", timeout=60000)
             page.hover(SELECTEUR_BOUTON)
             time.sleep(2)
             page.click(SELECTEUR_BOUTON, force=True)
-            try:
-                page.wait_for_function(f"window.location.href !== '{URL_CIBLE}'", timeout=30000)
-                print(f"[{time.ctime()}] Changement de page détecté. Validation confirmée.")
-            except:
-                browser.close()
-                msg_echec = "Le clic a ete fait mais la page n'a pas change (blocage ou erreur de validation)."
-                print(f"[{time.ctime()}] {msg_echec}")
-                envoyer_alerte("Bot : ECHEC VALIDATION", msg_echec)
-                return
-            time.sleep(180) 
+            time.sleep(180)
             sauver_compteur(jours - 1)
             print(f"[{time.ctime()}] Clic effectué avec succès ! Nouveau solde : {jours - 1} jours.")
             time.sleep(5)
@@ -88,6 +81,9 @@ def executer_clic():
             erreur_msg = f"Erreur lors du clic : {e}"
             print(f"[{time.ctime()}] ERREUR : {e}")
             envoyer_alerte("Bot : ERREUR DETECTEE", erreur_msg)
+        finally:
+            if process.poll() is None:
+                process.terminate()
 if __name__ == "__main__":
     executer_clic()
 ```
@@ -101,9 +97,9 @@ Le rendre exécutable :
 chmod +x /home/wark/Desktop/bot_clic.py
 ```
 ## Commandes de test et de debug
-Pour tester le script manuellement (le DISPLAY=:0 est crucial pour usage avec interface graphique)
+Pour tester le script manuellement (ignore le timer aléatoire)
 ```bash
-export DISPLAY=:0 && python3 /home/wark/Desktop/bot_clic.py
+/usr/bin/python3 /home/wark/Desktop/bot_clic.py
 ```
 Pour vérifier que l'utilisateur 'wark' peut éteindre l'appareil sans mot de passe
 ```bash
@@ -111,25 +107,11 @@ sudo -l
 ```
 ## Automatisation avec Cron
 ```bash
-nano /home/wark/Desktop/run_bot.sh
-```
-Coller ce code :
-```bash
-#!/bin/bash
-sleep $((RANDOM % 1800))
-DISPLAY=:0 /usr/bin/python3 /home/wark/Desktop/bot_clic.py >> /home/wark/Desktop/log_bot.txt 2>&1
-```
-Le rendre exécutable : 
-```bash
-chmod +x /home/wark/Desktop/run_bot.sh
-```
-Puis :
-```bash
 crontab -e
 ```
 Ligne à ajoutée tout en bas du fichier :
 ```bash
-00 22 * * * /home/wark/Desktop/run_bot.sh
+00 22 * * * /usr/bin/python3 /home/wark/Desktop/bot_clic.py >> /home/wark/Desktop/log_bot.txt 2>&1
 ```
 ## Consultation des résultats
 Lire le journal de bord (les logs)
