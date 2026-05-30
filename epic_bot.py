@@ -97,7 +97,7 @@ def executer_claim():
                 time.sleep(2)
                 page.click(SELECTEUR_BOUTON_OBTENIR)
                 print(f"[{time.ctime()}] Clic 'Obtenir' effectué. Attente du module de paiement...", flush=True)
-                time.sleep(30)
+                time.sleep(60)
 
                 bouton_trouve = False
                 frame_paiement = None
@@ -125,8 +125,8 @@ def executer_claim():
                 if not bouton_trouve:
                     raise Exception("Le bouton final dans #purchase-app-root n'a pas été trouvé.")
                 
-                print(f"[{time.ctime()}] Clic de validation effectué. Pause de 30s pour laisser l'interface s'ajuster...", flush=True)
-                time.sleep(30)
+                print(f"[{time.ctime()}] Clic de validation effectué. Pause pour laisser l'interface s'ajuster...", flush=True)
+                time.sleep(60)
 
                 print(f"[{time.ctime()}] Premier clic effectué. Attente de la popup de rétractation (Max 30s)...", flush=True)
                 popup_validee = False
