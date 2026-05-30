@@ -71,11 +71,25 @@ def executer_claim():
             page = context.pages[0]
 
             for url in urls_jeux:
-                print(f"[{time.ctime()}] Go sur : {url}", flush=True)
-                page.goto(url, timeout=60000)
+                url_francais = f"{url}?lang=fr"
+                
+                print(f"[{time.ctime()}] Go sur : {url_francais}", flush=True)
+                page.goto(url_francais, timeout=60000)
                 
                 print(f"[{time.ctime()}] Page chargée. Longue pause de 3 minutes...", flush=True)
                 time.sleep(180)
+
+                print(f"[{time.ctime()}] Vérification du statut de connexion...", flush=True)
+                try:
+                    page.wait_for_selector('button[aria-label="Account menu"]', state="visible", timeout=10000)
+                    print(f"[{time.ctime()}] Session active ! Utilisateur connecté.", flush=True)
+                except:
+                    print(f"[{time.ctime()}] ERREUR : Utilisateur non connecté sur Epic Games !", flush=True)
+                    envoyer_alerte(
+                        "Bot Epic : COMPTE DÉCONNECTÉ",
+                        f"Le bot a détecté que ta session a expiré alors qu'il traitait le jeu :\n{url_francais}\n\nConnecte-toi manuellement sur le Raspberry Pi."
+                    )
+                    return
 
                 try:
                     page.wait_for_selector(SELECTEUR_BOUTON_OBTENIR, state="visible", timeout=5000)
@@ -89,7 +103,7 @@ def executer_claim():
                     print("Impossible de trouver le bouton d'achat. Suivant.", flush=True)
                     envoyer_alerte(
                         "Bot Epic : BOUTON INTROUVABLE", 
-                        f"Le bouton d'achat n'a pas pu être détecté sur la page du jeu :\n{url}"
+                        f"Le bouton d'achat n'a pas pu être détecté sur la page du jeu :\n{url_francais}"
                     )
                     continue
 
@@ -152,7 +166,12 @@ def executer_claim():
                 time.sleep(180)
                 print(f"[{time.ctime()}] Fin de la pause. Passage au traitement suivant.", flush=True)
 
-            envoyer_alerte("Bot Epic Games", f"Succès ! Jeux traités : {len(urls_jeux)}")
+            noms_jeux = [url.split("/p/")[-1].replace("-", " ").title() for url in urls_jeux]
+            liste_noms = "\n- ".join(noms_jeux)
+            envoyer_alerte(
+                f"Bot Epic Games : {len(urls_jeux)} jeu(x) récupéré(s) !", 
+                f"Succès ! Les jeux suivants ont été ajoutés à ta bibliothèque :\n\n- {liste_noms}"
+            )
                 
         except Exception as e:
             print(f"[{time.ctime()}] ERREUR : {e}", flush=True)
