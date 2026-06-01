@@ -180,10 +180,16 @@ def executer_claim():
             if browser:
                 try:
                     browser.close()
+                    time.sleep(5)
                 except:
                     pass
             if process.poll() is None:
-                process.terminate()
+                try:
+                    print(f"[{time.ctime()}] Arrêt du processus Chromium...", flush=True)
+                    process.communicate(timeout=5)
+                except subprocess.TimeoutExpired:
+                    print(f"[{time.ctime()}] Chromium ne répond pas. Forçage de l'arrêt.", flush=True)
+                    process.kill()
 
 if __name__ == "__main__":
     executer_claim()
