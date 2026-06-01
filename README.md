@@ -1,6 +1,7 @@
 # Clic automatique sur un site web avec délai
 Ce script pouvant être utilisé sur n'importe quelle machine Linux sert à cliquer sur un bouton spécifique sur un site chaque soir aléatoirement entre 22h et 22h30 pendant X jours, puis éteindre l'appareil une fois le compteur de jours à 0.
 
+⚠️ Le trousseau de clés peut être responsable de la déconnexion des sessions utilisateur (ex : gnome-keyring).
 ## Préparation de l'environnement Python
 
 Installation de Playwright (le moteur du bot), du navigateur Chromium spécifique et des dépendances système
