@@ -57,6 +57,8 @@ def executer_claim():
 
     print(f"[{time.ctime()}] Jeux trouvés : {urls_jeux}", flush=True)
 
+    os.system("killall -9 chromium")
+    time.sleep(3)
     process = subprocess.Popen(
         ["chromium-browser", "--remote-debugging-port=9222"], 
         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, env={**os.environ, "DISPLAY": ":0"}
@@ -66,7 +68,7 @@ def executer_claim():
     browser = None
     with sync_playwright() as p:
         try:
-            browser = p.chromium.connect_over_cdp("http://localhost:9222")
+            browser = p.chromium.connect_over_cdp("http://127.0.0.1:9222")
             context = browser.contexts[0]
             page = context.pages[0]
 
@@ -180,16 +182,10 @@ def executer_claim():
             if browser:
                 try:
                     browser.close()
-                    time.sleep(5)
                 except:
                     pass
             if process.poll() is None:
-                try:
-                    print(f"[{time.ctime()}] Arrêt du processus Chromium...", flush=True)
-                    process.communicate(timeout=5)
-                except subprocess.TimeoutExpired:
-                    print(f"[{time.ctime()}] Chromium ne répond pas. Forçage de l'arrêt.", flush=True)
-                    process.kill()
+                process.terminate()
 
 if __name__ == "__main__":
     executer_claim()
