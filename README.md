@@ -26,10 +26,11 @@ import subprocess
 import smtplib
 from playwright.sync_api import sync_playwright
 
-URL_CIBLE = "https://example.site.com"
+URL_CIBLE = "https://exemple.site.com"
 SELECTEUR_BOUTON = "#payment-form > div > div > div > div.FadeWrapper > div > div > div > div > div:nth-child(2) > div > button > div > span.LinkActionButton-text > div.SubmitButton-IconContainer" 
-# TEST : SELECTEUR_BOUTON = "#root > div > div > div.App-Payment > div > footer > div > a > div"
+SELECTEUR_SUCCES = "#root > div > div > div.App-Payment.App-Payment--success > div.PaymentSuccess.flex-container.direction-column.justify-content-center.align-items-center > div > div.PaymentSuccess-header.flex-container.direction-column.align-items-center > div > svg > circle"
 CONFIG_FILE = "/home/wark/Desktop/bot_config.json"
+MON_EMAIL = "exemple@gmail.com"
 
 def charger_compteur():
     if not os.path.exists(CONFIG_FILE):
@@ -56,24 +57,46 @@ def executer_clic():
         print("Mission accomplie (0 jours restants). Extinction.")
         envoyer_alerte("Mission Terminee", "Le compteur est a 0. Extinction.")
         time.sleep(15)
-        os.system("sudo shutdown now") 
+        # os.system("sudo shutdown now")
         return
+    os.system("killall -9 chromium")
+    time.sleep(3)
     process = subprocess.Popen(["chromium-browser", URL_CIBLE, "--remote-debugging-port=9222"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, env={**os.environ, "DISPLAY": ":0"})
     time.sleep(10)
     with sync_playwright() as p:
         try:
-            browser = p.chromium.connect_over_cdp("http://localhost:9222")
+            browser = p.chromium.connect_over_cdp("http://127.0.0.1:9222")
             context = browser.contexts[0]
             if not context.pages: raise Exception("Aucun onglet detecte")
             page = context.pages[0]
-            time.sleep(180) 
+            time.sleep(120)
+            if MON_EMAIL not in page.content():
+                print(f"[{time.ctime()}] Erreur : Email introuvable.")
+                envoyer_alerte("Bot : Non connecté", f"L'email {MON_EMAIL} est introuvable sur la page. Session expirée ?")
+                browser.close()
+                return
             page.wait_for_selector(SELECTEUR_BOUTON, state="visible", timeout=60000)
             page.hover(SELECTEUR_BOUTON)
             time.sleep(2)
             page.click(SELECTEUR_BOUTON, force=True)
-            time.sleep(180)
-            sauver_compteur(jours - 1)
-            print(f"[{time.ctime()}] Clic effectué avec succès ! Nouveau solde : {jours - 1} jours.")
+            print(f"[{time.ctime()}] Clic effectué. Attente du traitement...")
+            time.sleep(120)
+            captcha_detecte = False
+            html_complet = page.content()
+            if "LightboxModalBody" in html_complet or "hcaptcha-inner" in html_complet:
+                captcha_detecte = True
+            if captcha_detecte:
+                print(f"[{time.ctime()}] Captcha détecté ! Pause de 10 minutes pour résolution manuelle...")
+                envoyer_alerte("Bot : CAPTCHA DETECTE", "Un hCaptcha bloque la validation. Viens cocher la case sur le RPi, tu as 10 minutes.")
+                time.sleep(600)
+            if page.locator(SELECTEUR_SUCCES).is_visible():
+                sauver_compteur(jours - 1)
+                print(f"[{time.ctime()}] Clic validé avec succès ! Nouveau solde : {jours - 1} jours.")
+            else:
+                print(f"[{time.ctime()}] Échec : Logo de confirmation introuvable.")
+                envoyer_alerte("Bot : Échec Validation", "Le bouton a été cliqué mais le logo check vert de confirmation n'est pas apparu.")
+                browser.close()
+                return
             time.sleep(5)
             browser.close()
         except Exception as e:
