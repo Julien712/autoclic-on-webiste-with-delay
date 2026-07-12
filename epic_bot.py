@@ -8,6 +8,7 @@ from playwright.sync_api import sync_playwright
 
 URL_API = "https://store-site-backend-static-ipv4.ak.epicgames.com/freeGamesPromotions?locale=fr&country=FR&allowCountries=FR"
 SELECTEUR_BOUTON_OBTENIR = '[data-testid="purchase-cta-button"]'
+FICHIER_MEMOIRE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "jeux_deja_recuperes.txt")
 
 def envoyer_alerte(sujet, corps):
     try:
@@ -17,6 +18,16 @@ def envoyer_alerte(sujet, corps):
             s.sendmail("smtp@email.com", "dest@email.com", f"Subject: {sujet}\n\n{corps}".encode('utf-8'))
     except: 
         pass
+
+def lire_jeux_deja_recuperes():
+    if not os.path.exists(FICHIER_MEMOIRE):
+        return set()
+    with open(FICHIER_MEMOIRE, "r", encoding="utf-8") as f:
+        return set(ligne.strip() for ligne in f if ligne.strip())
+
+def sauvegarder_jeu_recupere(url):
+    with open(FICHIER_MEMOIRE, "a", encoding="utf-8") as f:
+        f.write(f"{url}\n")
 
 def recuperer_urls_jeux_gratuits():
     urls = []
@@ -50,12 +61,20 @@ def executer_claim():
     print(f"[{time.ctime()}] Attente aléatoire de {attente_aleatoire // 60} min avant de commencer...", flush=True)
     time.sleep(attente_aleatoire)
 
-    urls_jeux = recuperer_urls_jeux_gratuits()
-    if not urls_jeux:
+    urls_jeux_api = recuperer_urls_jeux_gratuits()
+    if not urls_jeux_api:
         print(f"[{time.ctime()}] Aucun jeu gratuit trouvé cette semaine via l'API.", flush=True)
         return
 
-    print(f"[{time.ctime()}] Jeux trouvés : {urls_jeux}", flush=True)
+    deja_recuperes = lire_jeux_deja_recuperes()
+    
+    urls_jeux = [url for url in urls_jeux_api if url not in deja_recuperes]
+
+    if not urls_jeux:
+        print(f"[{time.ctime()}] Tous les jeux disponibles ({len(urls_jeux_api)}) ont déjà été récupérés précédemment. Fin du script.", flush=True)
+        return
+
+    print(f"[{time.ctime()}] Nouveaux jeux à récupérer : {urls_jeux}", flush=True)
 
     os.system("killall -9 chromium")
     time.sleep(3)
@@ -65,6 +84,7 @@ def executer_claim():
     )
     time.sleep(10)
 
+    jeux_reussis = []
     browser = None
     with sync_playwright() as p:
         try:
@@ -92,23 +112,28 @@ def executer_claim():
                         f"Le bot a détecté que ta session a expiré alors qu'il traitait le jeu :\n{url_francais}\n\nConnecte-toi manuellement sur le Raspberry Pi."
                     )
                     return
-
+                
+                deja_possede = False
                 try:
-                    page.wait_for_selector(SELECTEUR_BOUTON_OBTENIR, state="visible", timeout=5000)
+                    page.wait_for_selector(SELECTEUR_BOUTON_OBTENIR, state="visible", timeout=10000)
                     texte_bouton = page.locator(SELECTEUR_BOUTON_OBTENIR).inner_text()
                     
                     if "Dans la bibliothèque" in texte_bouton:
-                        print("Déjà possédé. Suivant.", flush=True)
-                        continue
-                        
-                except:
-                    print("Impossible de trouver le bouton d'achat. Suivant.", flush=True)
+                        print(f"[{time.ctime()}] Déjà possédé sur le compte Epic ({url}). Ajout à la mémoire locale.", flush=True)
+                        sauvegarder_jeu_recupere(url)
+                        deja_possede = True
+                except Exception as e:
+                    print(f"Impossible de trouver ou lire le bouton d'achat : {e}", flush=True)
                     envoyer_alerte(
                         "Bot Epic : BOUTON INTROUVABLE", 
-                        f"Le bouton d'achat n'a pas pu être détecté sur la page du jeu :\n{url_francais}"
+                        f"Le bouton d'achat n'a pas pu être détecté ou lu sur la page du jeu :\n{url_francais}"
                     )
                     continue
 
+                if deja_possede:
+                    continue
+
+                print(f"[{time.ctime()}] Tentative d'achat pour : {url}", flush=True)
                 page.hover(SELECTEUR_BOUTON_OBTENIR)
                 time.sleep(2)
                 page.click(SELECTEUR_BOUTON_OBTENIR)
@@ -139,7 +164,7 @@ def executer_claim():
                     time.sleep(1)
 
                 if not bouton_trouve:
-                    raise Exception("Le bouton final dans #purchase-app-root n'a pas été trouvé.")
+                    raise Exception("Le bouton final dans #purchase-app-root n'a pas été trouvé pour {url}.")
                 
                 print(f"[{time.ctime()}] Clic de validation effectué. Pause pour laisser l'interface s'ajuster...", flush=True)
                 time.sleep(60)
@@ -162,18 +187,23 @@ def executer_claim():
                     time.sleep(1)
 
                 if not popup_validee:
-                    raise Exception("La popup de rétractation obligatoire (bouton 'J'accepte') n'est pas apparue.")
+                    raise Exception(f"La popup de rétractation obligatoire (bouton 'J'accepte') n'est pas apparue pour {url}")
 
-                print(f"[{time.ctime()}] Achat validé. Longue pause de validation de 3 minutes...", flush=True)
+                print(f"[{time.ctime()}] Achat validé. Sauvegarde dans l'historique.", flush=True)
+                sauvegarder_jeu_recupere(url)
+                jeux_reussis.append(url)
+
+                print(f"[{time.ctime()}] Longue pause de validation de 3 minutes...", flush=True)
                 time.sleep(180)
                 print(f"[{time.ctime()}] Fin de la pause. Passage au traitement suivant.", flush=True)
 
-            noms_jeux = [url.split("/p/")[-1].replace("-", " ").title() for url in urls_jeux]
-            liste_noms = "\n- ".join(noms_jeux)
-            envoyer_alerte(
-                f"Bot Epic Games : {len(urls_jeux)} jeu(x) récupéré(s) !", 
-                f"Succès ! Les jeux suivants ont été ajoutés à ta bibliothèque :\n\n- {liste_noms}"
-            )
+            if jeux_reussis:
+                noms_jeux = [u.split("/p/")[-1].replace("-", " ").title() for u in jeux_reussis]
+                liste_noms = "\n- ".join(noms_jeux)
+                envoyer_alerte(
+                    f"Bot Epic Games : {len(jeux_reussis)} nouveau(x) jeu(x) récupéré(s) !", 
+                    f"Succès ! Les jeux suivants ont été ajoutés à ta bibliothèque :\n\n- {liste_noms}"
+                )
                 
         except Exception as e:
             print(f"[{time.ctime()}] ERREUR : {e}", flush=True)
