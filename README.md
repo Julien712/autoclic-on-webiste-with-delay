@@ -1,7 +1,19 @@
-# Clic automatique sur un site web avec délai
-Ce script pouvant être utilisé sur n'importe quelle machine Linux sert à cliquer sur un bouton spécifique sur un site chaque soir aléatoirement entre 22h et 22h30 pendant X jours, puis éteindre l'appareil une fois le compteur de jours à 0.
+# Script d'automatisation d'actions sur site web programmées
+
+Ce projet fournit un script Python robuste basé sur **Playwright** conçu pour exécuter de manière fiable une action de navigation répétitive sur une plateforme distante, tout en gérant un cycle de vie strict sur plusieurs jours. 
+
+Idéal pour les architectures légères (type Raspberry Pi ou serveurs Linux domestiques), le script intègre des mécanismes de résilience face aux interruptions réseau et aux vérifications d'interaction.
+
+## 🚀 Fonctionnalités
+
+* **Déclenchement Aléatoire :** Retardement dynamique de l'exécution (jusqu'à 30 minutes) pour lisser la charge et éviter les patterns fixes d'activité.
+* **Planification journalière définie :** Suivi strict du nombre de jours d'exécution restants via un fichier de configuration JSON local.
+* **Gestion des blocages :** Détection automatique de la présence d'un Captcha à l'écran pour mettre le script en pause et permettre une résolution manuelle.
+* **Mode Silence Radio :** Une fois le compteur à zéro, le script émet une alerte unique puis se désactive complètement en arrière-plan sans générer de logs ni de spams d'alertes.
+* **Alerting SMTP :** Notifications par email en cas d'anomalie détectée (perte de session, erreur de validation) ou pour signaler la fin de la mission.
 
 ⚠️ Le trousseau de clés peut être responsable de la déconnexion des sessions utilisateur (ex : gnome-keyring).
+
 ## Préparation de l'environnement Python
 
 Installation de Playwright (le moteur du bot), du navigateur Chromium spécifique et des dépendances système
@@ -129,12 +141,13 @@ Pour vérifier que l'utilisateur 'wark' peut éteindre l'appareil sans mot de pa
 sudo -l
 ```
 ## Automatisation avec Cron
+Pour orchestrer le script chaque soir à une heure fixe (en laissant le script gérer son propre délai aléatoire interne), ajoutez la règle suivante à votre `crontab` :
 ```bash
 crontab -e
 ```
 Ligne à ajoutée tout en bas du fichier :
 ```bash
-00 22 * * * /usr/bin/python3 /home/wark/Desktop/bot_clic.py >> /home/wark/Desktop/log_bot.txt 2>&1
+00 22 * * * /usr/bin/python3 -u /home/wark/Desktop/clic_bot.py >> /home/wark/Desktop/clic_bot.log 2>&1
 ```
 ## Consultation des résultats
 Lire le journal de bord (les logs)
