@@ -53,11 +53,13 @@ def executer_clic():
     print(f"[{time.ctime()}] Attente aléatoire de {attente_aleatoire // 60} min avant de commencer...", flush=True)
     time.sleep(attente_aleatoire)
     jours = charger_compteur()
+    if jours == -1:
+        return
     if jours <= 0:
-        print("Mission accomplie (0 jours restants). Extinction.")
-        envoyer_alerte("Mission Terminee", "Le compteur est a 0. Extinction.")
+        print("Mission accomplie (0 jours restants).")
+        envoyer_alerte("Mission Terminee", "Le compteur est a 0. Le bot se met en silence jusqu'a recharge.")
+        sauver_compteur(-1)
         time.sleep(15)
-        # os.system("sudo shutdown now")
         return
     os.system("killall -9 chromium")
     time.sleep(3)
