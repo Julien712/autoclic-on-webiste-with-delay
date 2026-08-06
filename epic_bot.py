@@ -60,7 +60,7 @@ def executer_claim():
     os.system("killall -9 chromium")
     time.sleep(3)
     process = subprocess.Popen(
-        ["chromium-browser", "--remote-debugging-port=9222"], 
+        ["chromium", "--remote-debugging-port=9222","--password-store=basic"],
         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, env={**os.environ, "DISPLAY": ":0"}
     )
     time.sleep(10)
