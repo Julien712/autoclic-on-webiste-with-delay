@@ -18,7 +18,7 @@ Idéal pour les architectures légères (type Raspberry Pi ou serveurs Linux dom
 
 Installation de Playwright (le moteur du bot), du navigateur Chromium spécifique et des dépendances système
 ```bash
-pip install playwright --break-system-packages
+python3 -m pip install --break-system-packages playwright requests
 python3 -m playwright install-deps
 ```
 ## Création des dossiers et fichiers sur le Bureau
