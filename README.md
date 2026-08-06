@@ -75,7 +75,10 @@ def executer_clic():
         return
     os.system("killall -9 chromium")
     time.sleep(3)
-    process = subprocess.Popen(["chromium-browser", URL_CIBLE, "--remote-debugging-port=9222"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, env={**os.environ, "DISPLAY": ":0"})
+    process = subprocess.Popen(
+        ["chromium", URL_CIBLE, "--remote-debugging-port=9222","--password-store=basic"],
+        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, env={**os.environ, "DISPLAY": ":0"}
+    )
     time.sleep(10)
     with sync_playwright() as p:
         try:
