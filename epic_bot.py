@@ -34,8 +34,20 @@ def recuperer_urls_jeux_gratuits():
                 offers = promos_actives[0].get('promotionalOffers')
                 for offer in offers:
                     if offer.get('discountSetting', {}).get('discountPercentage') == 0:
-                        slug = el.get('productSlug') or el.get('catalogNs', {}).get('mappings', [{}])[0].get('pageSlug')
+                        slug = None
+                        offer_mappings = el.get('offerMappings') or []
+                        if offer_mappings and len(offer_mappings) > 0:
+                            slug = offer_mappings[0].get('pageSlug')
+                        if not slug:
+                            catalog_mappings = el.get('catalogNs', {}).get('mappings') or []
+                            if catalog_mappings and len(catalog_mappings) > 0:
+                                slug = catalog_mappings[0].get('pageSlug')
+                        if not slug:
+                            slug = el.get('productSlug') or el.get('urlSlug')
+                            if slug and slug.endswith('/home'):
+                                slug = slug.replace('/home', '')
                         if slug:
+                            slug = slug.strip('/')
                             urls.append(f"https://store.epicgames.com/fr/p/{slug}")
     except Exception as e:
         print(f"Erreur API Epic : {e}", flush=True)
@@ -79,8 +91,8 @@ def executer_claim():
                 print(f"[{time.ctime()}] Go sur : {url_francais}", flush=True)
                 page.goto(url_francais, timeout=60000)
                 
-                print(f"[{time.ctime()}] Page chargée. Longue pause de 3 minutes...", flush=True)
-                time.sleep(180)
+                print(f"[{time.ctime()}] Page chargée. Longue pause...", flush=True)
+                time.sleep(60)
 
                 print(f"[{time.ctime()}] Vérification du statut de connexion...", flush=True)
                 try:
@@ -96,12 +108,15 @@ def executer_claim():
                 
                 deja_possede = False
                 try:
-                    page.wait_for_selector(SELECTEUR_BOUTON_OBTENIR, state="visible", timeout=10000)
-                    texte_bouton = page.locator(SELECTEUR_BOUTON_OBTENIR).inner_text()
+                    page.wait_for_selector(SELECTEUR_BOUTON_OBTENIR, state="attached", timeout=10000)
+                    texte_bouton = page.locator(SELECTEUR_BOUTON_OBTENIR).inner_text().lower()
                     
-                    if "Dans la bibliothèque" in texte_bouton:
+                    if "dans la bibliothèque" in texte_bouton:
                         print(f"[{time.ctime()}] Déjà possédé dans la bibliothèque Epic. Pas d'alerte. Suivant.", flush=True)
                         deja_possede = True
+                    elif "requiert le jeu de base" in texte_bouton:
+                        print(f"[{time.ctime()}] DLC détecté sans le jeu de base (bouton désactivé). Suivant.", flush=True)
+                        continue
                 except Exception as e:
                     print(f"Impossible de trouver ou lire le bouton d'achat : {e}", flush=True)
                     envoyer_alerte(
@@ -119,6 +134,14 @@ def executer_claim():
                 page.click(SELECTEUR_BOUTON_OBTENIR)
                 print(f"[{time.ctime()}] Clic 'Obtenir' effectué. Attente du module de paiement...", flush=True)
                 time.sleep(60)
+                try:
+                    bouton_incompatible = page.locator('button:has-text("Continuer")')
+                    if bouton_incompatible.is_visible(timeout=5000):
+                        print(f"[{time.ctime()}] Popup 'Appareil non compatible' détectée. Clic sur 'Continuer'.", flush=True)
+                        bouton_incompatible.click()
+                        time.sleep(30)
+                except:
+                    pass
 
                 bouton_trouve = False
                 frame_paiement = None
@@ -172,8 +195,8 @@ def executer_claim():
                 print(f"[{time.ctime()}] Achat validé avec succès !", flush=True)
                 jeux_effectivement_recuperes.append(url)
 
-                print(f"[{time.ctime()}] Longue pause de validation de 3 minutes...", flush=True)
-                time.sleep(180)
+                print(f"[{time.ctime()}] Longue pause de validation...", flush=True)
+                time.sleep(60)
                 print(f"[{time.ctime()}] Fin de la pause. Passage au traitement suivant.", flush=True)
                 
             if jeux_effectivement_recuperes:
