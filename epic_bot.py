@@ -102,9 +102,15 @@ def executer_claim():
                     print(f"[{time.ctime()}] ERREUR : Utilisateur non connecté sur Epic Games !", flush=True)
                     envoyer_alerte(
                         "Bot Epic : COMPTE DÉCONNECTÉ",
-                        f"Le bot a détecté que ta session a expiré alors qu'il traitait le jeu :\n{url_francais}\n\nConnecte-toi manuellement sur le Raspberry Pi."
+                        f"La session a expiré sur le jeu :\n{url}\n\nUne pause de 10 minutes est activée. Connecte-toi manuellement sur le Raspberry Pi !"
                     )
-                    return
+                    time.sleep(600)
+                    try:
+                        page.wait_for_selector('button[aria-label="Account menu"]', state="visible", timeout=10000)
+                        print(f"[{time.ctime()}] Connexion validée, reprise du traitement.", flush=True)
+                    except:
+                        print(f"[{time.ctime()}] Toujours pas connecté après 10 min. Abandon.", flush=True)
+                        return
                 
                 deja_possede = False
                 try:
