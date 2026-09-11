@@ -57,6 +57,16 @@ def recuperer_urls_jeux_gratuits():
         )
     return list(set(urls))
 
+def simuler_comportement_humain(page):
+    page.evaluate("window.scrollBy(0, 300);")
+    time.sleep(random.uniform(0.8, 1.5))
+    
+    for _ in range(random.randint(2, 4)):
+        x = random.randint(100, 700)
+        y = random.randint(100, 500)
+        page.mouse.move(x, y, steps=10)
+        time.sleep(random.uniform(0.2, 0.5))
+
 def executer_claim():
     attente_aleatoire = random.randint(0, 1800) if not os.isatty(0) else 0
     print(f"[{time.ctime()}] Attente aléatoire de {attente_aleatoire // 60} min avant de commencer...", flush=True)
@@ -102,7 +112,7 @@ def executer_claim():
                     print(f"[{time.ctime()}] ERREUR : Utilisateur non connecté sur Epic Games !", flush=True)
                     envoyer_alerte(
                         "Bot Epic : COMPTE DÉCONNECTÉ",
-                        f"La session a expiré sur le jeu :\n{url}\n\nUne pause de 10 minutes est activée. Connecte-toi manuellement sur le Raspberry Pi !"
+                        f"La session a expiré sur le jeu :\n{url}\n\nUne pause de 10 minutes est activée. Connecte-toi manuellement !"
                     )
                     time.sleep(600)
                     try:
@@ -135,11 +145,17 @@ def executer_claim():
                     continue
                 
                 print(f"[{time.ctime()}] Nouveau jeu détecté ! Tentative d'obtention...", flush=True)
-                page.hover(SELECTEUR_BOUTON_OBTENIR)
+                
+                bouton_obtenir = page.locator(SELECTEUR_BOUTON_OBTENIR)
+                bouton_obtenir.scroll_into_view_if_needed()
+                simuler_comportement_humain(page)
+                
+                bouton_obtenir.hover()
                 time.sleep(2)
-                page.click(SELECTEUR_BOUTON_OBTENIR)
+                bouton_obtenir.click()
                 print(f"[{time.ctime()}] Clic 'Obtenir' effectué. Attente du module de paiement...", flush=True)
                 time.sleep(60)
+
                 try:
                     bouton_incompatible = page.locator('button:has-text("Continuer")')
                     if bouton_incompatible.is_visible(timeout=5000):
@@ -161,8 +177,10 @@ def executer_claim():
                                 cible = root_paiement.locator('button:has-text("Ajouter à la bibliothèque")')
                                 if cible.is_visible():
                                     print(f"[{time.ctime()}] Zone de paiement détectée ! Clic sur le bouton de validation.", flush=True)
-                                    cible.hover()
+                                    cible.scroll_into_view_if_needed()
                                     time.sleep(2)
+                                    cible.hover()
+                                    time.sleep(1)
                                     cible.click()
                                     bouton_trouve = True
                                     break
@@ -179,27 +197,78 @@ def executer_claim():
                 time.sleep(60)
 
                 print(f"[{time.ctime()}] Premier clic effectué. Attente de la popup de rétractation (Max 30s)...", flush=True)
-                popup_validee = False
-                
-                for _ in range(60):
+                if frame_paiement:
                     try:
                         bouton_popup = frame_paiement.locator('button:has-text("J\'accepte")')
-                        if bouton_popup.is_visible():
-                            print(f"[{time.ctime()}] Popup de rétractation détectée. Clic sur 'J'accepte'.", flush=True)
+                        if bouton_popup.is_visible(timeout=5000):
+                            print(f"[{time.ctime()}] Popup de rétractation détectée. Clic sur 'J\'accepte'.", flush=True)
                             bouton_popup.hover()
                             time.sleep(2)
                             bouton_popup.click()
-                            popup_validee = True
+                    except:
+                        pass
+
+                print(f"[{time.ctime()}] Analyse de l'issue de la commande...", flush=True)
+                
+                achat_reussi = False
+                captcha_detecte = False
+
+                for _ in range(30):
+                    try:
+                        if page.locator('text="Le lanceur Epic Games est-il installé ?"').is_visible():
+                            achat_reussi = True
                             break
                     except:
                         pass
-                    time.sleep(1)
 
-                if not popup_validee:
-                    raise Exception("La popup de rétractation obligatoire (bouton 'J'accepte') n'est pas apparue.")
+                    try:
+                        selectors_captcha = [
+                            'iframe[src*="hcaptcha"]',
+                            'iframe[src*="arkoselabs"]',
+                            'iframe[title*="hCaptcha"]',
+                            '#hcaptcha-challenge',
+                            '#arkose'
+                        ]
+                        for sel in selectors_captcha:
+                            loc = page.locator(sel)
+                            if loc.count() > 0 and loc.first.is_visible():
+                                captcha_detecte = True
+                                break
 
-                print(f"[{time.ctime()}] Achat validé avec succès !", flush=True)
-                jeux_effectivement_recuperes.append(url)
+                        if not captcha_detecte:
+                            for frame in page.frames:
+                                if any(token in frame.url for token in ["arkoselabs", "hcaptcha", "recaptcha"]):
+                                    if frame.frame_element().is_visible():
+                                        captcha_detecte = True
+                                        break
+                    except:
+                        pass
+
+                    if captcha_detecte:
+                        break
+                                        
+                    time.sleep(2)
+
+                if captcha_detecte:
+                    print(f"[{time.ctime()}] CAPTCHA DÉTECTÉ ! Pause de 10 minutes active.", flush=True)
+                    envoyer_alerte(
+                        "Bot Epic : CAPTCHA DÉTECTÉ",
+                        f"Un CAPTCHA est apparu sur le jeu :\n{url}\n\nRésous-le sous 10 minutes !"
+                    )
+                    time.sleep(600)
+                    
+                    try:
+                        if page.locator('text="Le lanceur Epic Games est-il installé ?"').is_visible():
+                            achat_reussi = True
+                            print(f"[{time.ctime()}] CAPTCHA résolu manuellement. Validation confirmée !", flush=True)
+                    except:
+                        pass
+
+                if achat_reussi:
+                    print(f"[{time.ctime()}] Achat validé avec succès !", flush=True)
+                    jeux_effectivement_recuperes.append(url)
+                else:
+                    print(f"[{time.ctime()}] Échec de confirmation pour ce jeu. Passage au suivant...", flush=True)
 
                 print(f"[{time.ctime()}] Longue pause de validation...", flush=True)
                 time.sleep(60)
