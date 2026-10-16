@@ -39,10 +39,15 @@ import smtplib
 from playwright.sync_api import sync_playwright
 
 URL_CIBLE = "https://exemple.site.com"
-SELECTEUR_BOUTON = "#payment-form > div > div > div > div.FadeWrapper > div > div > div > div > div:nth-child(2) > div > button > div > span.LinkActionButton-text > div.SubmitButton-IconContainer" 
+SELECTEUR_BOUTON = "#payment-form > div > div > div > div.PaymentForm-confirmPaymentContainer.mt5.flex-item.width-grow > div > div:nth-child(3) > div > button"
 SELECTEUR_SUCCES = "#root > div > div > div.App-Payment.App-Payment--success > div.PaymentSuccess.flex-container.direction-column.justify-content-center.align-items-center > div > div.PaymentSuccess-header.flex-container.direction-column.align-items-center > div > svg > circle"
 CONFIG_FILE = "/home/wark/Desktop/bot_config.json"
-MON_EMAIL = "exemple@gmail.com"
+
+FORM_EMAIL = ""
+CARTE_NUMERO = ""
+CARTE_EXPIRY = ""
+CARTE_CVC = ""
+CARTE_NOM = ""
 
 def charger_compteur():
     if not os.path.exists(CONFIG_FILE):
@@ -59,7 +64,16 @@ def envoyer_alerte(sujet, corps):
             s.starttls()
             s.login("smtp@email.com", "password")
             s.sendmail("smtp@email.com", "dest@email.com", f"Subject: {sujet}\n\n{corps}".encode('utf-8'))
-    except: pass
+    except Exception as e:
+        print(f"[{time.ctime()}] Alerte mail non envoyée : {e}", flush=True)
+def remplir(page, selecteur, valeur):
+    champ = page.locator(selecteur)
+    champ.wait_for(state="visible", timeout=120000)
+    time.sleep(3)
+    champ.click()
+    time.sleep(1)
+    champ.press_sequentially(valeur, delay=random.randint(150, 300))
+    time.sleep(random.uniform(2, 4))
 def executer_clic():
     attente_aleatoire = random.randint(0, 1800) if not os.isatty(0) else 0
     print(f"[{time.ctime()}] Attente aléatoire de {attente_aleatoire // 60} min avant de commencer...", flush=True)
@@ -76,7 +90,7 @@ def executer_clic():
     os.system("killall -9 chromium")
     time.sleep(3)
     process = subprocess.Popen(
-        ["chromium", URL_CIBLE, "--remote-debugging-port=9222","--password-store=basic"],
+        ["chromium", URL_CIBLE, "--remote-debugging-port=9222", "--password-store=basic"],
         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, env={**os.environ, "DISPLAY": ":0"}
     )
     time.sleep(10)
@@ -84,34 +98,45 @@ def executer_clic():
         try:
             browser = p.chromium.connect_over_cdp("http://127.0.0.1:9222")
             context = browser.contexts[0]
-            if not context.pages: raise Exception("Aucun onglet detecte")
+            if not context.pages:
+                raise Exception("Aucun onglet detecte")
             page = context.pages[0]
-            time.sleep(120)
-            if MON_EMAIL not in page.content():
-                print(f"[{time.ctime()}] Erreur : Email introuvable.")
-                envoyer_alerte("Bot : Non connecté", f"L'email {MON_EMAIL} est introuvable sur la page. Session expirée ?")
-                browser.close()
-                return
-            page.wait_for_selector(SELECTEUR_BOUTON, state="visible", timeout=60000)
+            page.set_default_timeout(120000)
+            page.wait_for_load_state("domcontentloaded")
+            time.sleep(30)
+            remplir(page, "#email", FORM_EMAIL)
+            page.keyboard.press("Tab")
+            time.sleep(5)
+            page.keyboard.press("Enter")
+            time.sleep(10)
+            remplir(page, "#cardNumber", CARTE_NUMERO)
+            remplir(page, "#cardExpiry", CARTE_EXPIRY)
+            remplir(page, "#cardCvc", CARTE_CVC)
+            remplir(page, "#billingName", CARTE_NOM)
+            page.wait_for_selector(SELECTEUR_BOUTON, state="visible", timeout=120000)
             page.hover(SELECTEUR_BOUTON)
-            time.sleep(2)
+            time.sleep(3)
             page.click(SELECTEUR_BOUTON, force=True)
-            print(f"[{time.ctime()}] Clic effectué. Attente du traitement...")
-            time.sleep(120)
-            captcha_detecte = False
-            html_complet = page.content()
-            if "LightboxModalBody" in html_complet or "hcaptcha-inner" in html_complet:
-                captcha_detecte = True
-            if captcha_detecte:
-                print(f"[{time.ctime()}] Captcha détecté ! Pause de 10 minutes pour résolution manuelle...")
-                envoyer_alerte("Bot : CAPTCHA DETECTE", "Un hCaptcha bloque la validation. Viens cocher la case sur le RPi, tu as 10 minutes.")
-                time.sleep(600)
-            if page.locator(SELECTEUR_SUCCES).is_visible():
+            print(f"[{time.ctime()}] Clic effectué. Attente du traitement...", flush=True)
+            succes = False
+            alerte_captcha = False
+            for _ in range(150):
+                if page.locator(SELECTEUR_SUCCES).is_visible():
+                    succes = True
+                    break
+                if not alerte_captcha:
+                    html = page.content()
+                    if "LightboxModalBody" in html or "hcaptcha-inner" in html:
+                        alerte_captcha = True
+                        print(f"[{time.ctime()}] Captcha détecté !", flush=True)
+                        envoyer_alerte("Bot : CAPTCHA DETECTE", "Un hCaptcha bloque la validation. Viens cocher la case sur le RPi.")
+                time.sleep(5)
+            if succes:
                 sauver_compteur(jours - 1)
                 print(f"[{time.ctime()}] Clic validé avec succès ! Nouveau solde : {jours - 1} jours.")
             else:
                 print(f"[{time.ctime()}] Échec : Logo de confirmation introuvable.")
-                envoyer_alerte("Bot : Échec Validation", "Le bouton a été cliqué mais le logo check vert de confirmation n'est pas apparu.")
+                envoyer_alerte("Bot : Échec Validation", "Le bouton a été cliqué mais le logo de confirmation n'est pas apparu. Vérifie manuellement avant le prochain passage.")
                 browser.close()
                 return
             time.sleep(5)
