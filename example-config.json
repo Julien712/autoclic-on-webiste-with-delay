@@ -1,0 +1,11 @@
+{
+    "SMTP_EMAIL": "ton.adresse@gmail.com",
+    "SMTP_PASSWORD": "mot-de-passe-d-application",
+    "EMAIL": "ton.adresse@gmail.com",
+    "URL_CIBLE": "https://exemple.site.com",
+    "CARTE_NUMERO": "",
+    "CARTE_EXPIRY": "",
+    "CARTE_CVC": "",
+    "CARTE_NOM": "",
+    "remaining_days": 14
+}
