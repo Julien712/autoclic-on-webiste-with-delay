@@ -2,7 +2,7 @@
     "SMTP_EMAIL": "ton.adresse@gmail.com",
     "SMTP_PASSWORD": "mot-de-passe-d-application",
     "EMAIL": "ton.adresse@gmail.com",
-    "URL_CIBLE": "https://exemple.site.com",
+    "URL_CIBLE": "https://bot.sannysoft.com/",
     "CARTE_NUMERO": "",
     "CARTE_EXPIRY": "",
     "CARTE_CVC": "",
