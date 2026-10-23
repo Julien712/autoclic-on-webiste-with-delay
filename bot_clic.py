@@ -8,16 +8,25 @@ import smtplib
 import urllib.request
 from playwright.sync_api import sync_playwright
 
-URL_CIBLE = "https://exemple.site.com"
+CHEMIN_CONFIG = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.json")
+
+try:
+    with open(CHEMIN_CONFIG, "r", encoding="utf-8") as f:
+        CONFIG = json.load(f)
+except Exception as e:
+    raise SystemExit(f"[{time.ctime()}] ERREUR : Impossible de lire config.json : {e}")
+
+SMTP_EMAIL = CONFIG["SMTP_EMAIL"]
+SMTP_PASSWORD = CONFIG["SMTP_PASSWORD"]
+EMAIL = CONFIG["EMAIL"]
+URL_CIBLE = CONFIG["URL_CIBLE"]
 SELECTEUR_BOUTON = "#payment-form > div > div > div > div.PaymentForm-confirmPaymentContainer.mt5.flex-item.width-grow > div > div:nth-child(3) > div > button"
 SELECTEUR_SUCCES = "#root > div > div > div.App-Payment.App-Payment--success > div.PaymentSuccess.flex-container.direction-column.justify-content-center.align-items-center > div > div.PaymentSuccess-header.flex-container.direction-column.align-items-center > div > svg > circle"
-CONFIG_FILE = "/home/wark/Desktop/bot_config.json"
 
-FORM_EMAIL = ""
-CARTE_NUMERO = ""
-CARTE_EXPIRY = ""
-CARTE_CVC = ""
-CARTE_NOM = ""
+CARTE_NUMERO = CONFIG["CARTE_NUMERO"]
+CARTE_EXPIRY = CONFIG["CARTE_EXPIRY"]
+CARTE_CVC = CONFIG["CARTE_CVC"]
+CARTE_NOM = CONFIG["CARTE_NOM"]
 
 def detecter_version_chromium():
     try:
@@ -100,22 +109,26 @@ def attendre_chromium(timeout=90):
     return False
 
 def charger_compteur():
-    if not os.path.exists(CONFIG_FILE):
-        return 0
-    with open(CONFIG_FILE, "r") as f:
-        data = json.load(f)
-        return data.get("remaining_days", 0)
+    with open(CHEMIN_CONFIG, "r", encoding="utf-8") as f:
+        return json.load(f).get("remaining_days", 0)
 
 def sauver_compteur(jours):
-    with open(CONFIG_FILE, "w") as f:
-        json.dump({"remaining_days": jours}, f, indent=4)
+    with open(CHEMIN_CONFIG, "r", encoding="utf-8") as f:
+        donnees = json.load(f)
+    donnees["remaining_days"] = jours
+    tmp = CHEMIN_CONFIG + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(donnees, f, indent=4, ensure_ascii=False)
+        f.flush()
+        os.fsync(f.fileno())
+    os.replace(tmp, CHEMIN_CONFIG)
 
 def envoyer_alerte(sujet, corps):
     try:
         with smtplib.SMTP("smtp.gmail.com", 587) as s:
             s.starttls()
-            s.login("smtp@email.com", "password")
-            s.sendmail("smtp@email.com", "dest@email.com", f"Subject: {sujet}\n\n{corps}".encode('utf-8'))
+            s.login(SMTP_EMAIL, SMTP_PASSWORD)
+            s.sendmail(SMTP_EMAIL, EMAIL, f"Subject: {sujet}\n\n{corps}".encode('utf-8'))
     except Exception as e:
         print(f"[{time.ctime()}] Alerte mail non envoyée : {e}", flush=True)
 
@@ -173,7 +186,7 @@ def executer_clic():
             print(f"[{time.ctime()}] User agent Windows appliqué (Chrome {CHROME_VERSION}).", flush=True)
             page.goto(URL_CIBLE, wait_until="domcontentloaded")
             page.wait_for_selector("#email", state="visible")
-            remplir(page, "#email", FORM_EMAIL)
+            remplir(page, "#email", EMAIL)
             page.keyboard.press("Tab")
             time.sleep(5)
             page.keyboard.press("Enter")
