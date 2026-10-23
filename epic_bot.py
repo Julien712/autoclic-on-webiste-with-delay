@@ -9,6 +9,19 @@ import urllib.request
 import requests
 from playwright.sync_api import sync_playwright
 
+CHEMIN_CONFIG = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.json")
+
+try:
+    with open(CHEMIN_CONFIG, "r", encoding="utf-8") as f:
+        CONFIG = json.load(f)
+except Exception as e:
+    raise SystemExit(f"[{time.ctime()}] ERREUR : Impossible de lire config.json : {e}")
+
+SMTP_EMAIL = CONFIG["SMTP_EMAIL"]
+SMTP_PASSWORD = CONFIG["SMTP_PASSWORD"]
+EMAIL = CONFIG["EMAIL"]
+EPIC_USERNAME = CONFIG["EPIC_USERNAME"]
+
 URL_API = "https://store-site-backend-static-ipv4.ak.epicgames.com/freeGamesPromotions?locale=fr&country=FR&allowCountries=FR"
 
 def detecter_version_chromium():
@@ -75,8 +88,8 @@ def envoyer_alerte(sujet, corps):
     try:
         with smtplib.SMTP("smtp.gmail.com", 587) as s:
             s.starttls()
-            s.login("smtp@email.com", "password")
-            s.sendmail("smtp@email.com", "dest@email.com", f"Subject: {sujet}\n\n{corps}".encode('utf-8'))
+            s.login(SMTP_EMAIL, SMTP_PASSWORD)
+            s.sendmail(SMTP_EMAIL, EMAIL, f"Subject: {sujet}\n\n{corps}".encode('utf-8'))
     except Exception as e:
         print(f"[{time.ctime()}] Alerte mail non envoyée : {e}", flush=True)
 
@@ -229,23 +242,44 @@ def executer_claim():
                 
                 print(f"[{time.ctime()}] Go sur : {url_francais}", flush=True)
                 page.goto(url_francais, timeout=90000, wait_until="domcontentloaded")
-
+                
                 print(f"[{time.ctime()}] Vérification du statut de connexion...", flush=True)
                 try:
                     page.wait_for_selector('button[aria-label="Account menu"]', state="visible", timeout=60000)
                     print(f"[{time.ctime()}] Session active ! Utilisateur connecté.", flush=True)
                 except:
                     print(f"[{time.ctime()}] ERREUR : Utilisateur non connecté sur Epic Games !", flush=True)
-                    envoyer_alerte(
-                        "Bot Epic : COMPTE DÉCONNECTÉ",
-                        f"La session a expiré sur le jeu :\n{url}\n\nJe patiente jusqu'à 10 minutes. Connecte-toi manuellement !"
-                    )
+                    connexion_reussie = False
                     try:
-                        page.wait_for_selector('button[aria-label="Account menu"]', state="visible", timeout=600000)
-                        print(f"[{time.ctime()}] Connexion validée, reprise du traitement.", flush=True)
-                    except:
-                        print(f"[{time.ctime()}] Toujours pas connecté après 10 min. Abandon.", flush=True)
-                        return
+                        bouton_connexion = page.get_by_text("Se connecter", exact=False).first
+                        bouton_connexion.wait_for(state="visible", timeout=60000)
+                        time.sleep(random.uniform(1.0, 2.0))
+                        print(f"[{time.ctime()}] Clic sur le bouton contenant 'Se connecter'...", flush=True)
+                        bouton_connexion.click(timeout=15000)
+
+                        bouton_compte = page.get_by_text(EPIC_USERNAME, exact=True).first
+                        bouton_compte.wait_for(state="visible", timeout=60000)
+                        time.sleep(random.uniform(1.0, 2.0))
+                        print(f"[{time.ctime()}] Clic sur le compte Epic '{EPIC_USERNAME}'...", flush=True)
+                        bouton_compte.click(timeout=15000)
+
+                        page.wait_for_selector('button[aria-label="Account menu"]', state="visible", timeout=60000)
+                        print(f"[{time.ctime()}] Connexion réussie, reprise du traitement.", flush=True)
+                        connexion_reussie = True
+                    except Exception as e:
+                        print(f"[{time.ctime()}] Connexion automatique impossible ou non confirmée : {e}", flush=True)
+
+                    if not connexion_reussie:
+                        envoyer_alerte(
+                            "Bot Epic : COMPTE DÉCONNECTÉ",
+                            f"La session a expiré sur le jeu :\n{url}\n\nJe patiente jusqu'à 10 minutes. Connecte-toi manuellement !"
+                        )
+                        try:
+                            page.wait_for_selector('button[aria-label="Account menu"]', state="visible", timeout=600000)
+                            print(f"[{time.ctime()}] Connexion validée, reprise du traitement.", flush=True)
+                        except:
+                            print(f"[{time.ctime()}] Toujours pas connecté après 10 min. Abandon.", flush=True)
+                            return
                     page.goto(url_francais, timeout=90000, wait_until="domcontentloaded")
                 
                 deja_possede = False
